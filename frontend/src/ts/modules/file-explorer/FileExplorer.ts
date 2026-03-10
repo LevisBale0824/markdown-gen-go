@@ -58,10 +58,44 @@ export class FileExplorer {
   }
 
   /**
-   * 规范化路径（统一使用反斜杠）
+   * 规范化路径（根据操作系统统一路径分隔符）
+   * Windows 使用反斜杠，Unix 使用正斜杠
    */
   private normalizePath(path: string): string {
-    return path.replace(/\//g, '\\');
+    // 检测路径中使用的分隔符类型
+    const hasBackslash = path.includes('\\');
+    const hasForwardSlash = path.includes('/');
+
+    // 如果路径同时包含两种分隔符，或只有正斜杠但看起来像 Windows 路径
+    if (hasBackslash) {
+      // Windows 路径，统一使用反斜杠
+      return path.replace(/\//g, '\\');
+    } else if (hasForwardSlash) {
+      // Unix 路径，统一使用正斜杠
+      return path.replace(/\\/g, '/');
+    }
+    return path;
+  }
+
+  /**
+   * 获取路径分隔符
+   */
+  private getPathSeparator(path: string): string {
+    // 检测路径使用的分隔符
+    if (path.includes('\\')) {
+      return '\\';
+    }
+    return '/';
+  }
+
+  /**
+   * 连接路径
+   */
+  private joinPath(dir: string, name: string): string {
+    const separator = this.getPathSeparator(dir);
+    // 确保目录不以分隔符结尾
+    const normalizedDir = dir.endsWith(separator) ? dir.slice(0, -1) : dir;
+    return normalizedDir + separator + name;
   }
 
   /**
@@ -69,7 +103,8 @@ export class FileExplorer {
    */
   private getParentDir(path: string): string {
     const normalized = this.normalizePath(path);
-    const idx = Math.max(normalized.lastIndexOf('\\'), normalized.lastIndexOf('/'));
+    const separator = this.getPathSeparator(normalized);
+    const idx = normalized.lastIndexOf(separator);
     return idx > 0 ? normalized.substring(0, idx) : '';
   }
 
@@ -399,7 +434,7 @@ export class FileExplorer {
 
       // 确保文件名以 .md 结尾
       const finalName = fileName.endsWith('.md') ? fileName : `${fileName}.md`;
-      const savePath = targetDir + '\\' + finalName;
+      const savePath = this.joinPath(targetDir, finalName);
 
       try {
         await tauriBridge.createFile(savePath);

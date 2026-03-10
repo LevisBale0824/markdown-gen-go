@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	runtimelib "runtime"
 	"strings"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -26,20 +27,35 @@ func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 }
 
-// GetDataDir 获取笔记存储目录（安装目录下的 notes 文件夹）
+// GetDataDir 获取笔记存储目录
+// Windows: 安装目录下的 notes 文件夹
+// Linux/macOS: ~/.local/share/markdown-gen-go/notes 或 XDG_DATA_HOME
 func (a *App) GetDataDir() string {
-	// 获取当前可执行文件所在目录（安装目录）
-	execPath, err := os.Executable()
-	if err != nil {
-		// 如果获取失败，使用当前工作目录
-		execPath = "."
+	var dataDir string
+
+	if runtimelib.GOOS == "windows" {
+		// Windows: 使用安装目录下的 notes 文件夹
+		execPath, err := os.Executable()
+		if err != nil {
+			execPath = "."
+		}
+		installDir := filepath.Dir(execPath)
+		dataDir = filepath.Join(installDir, "notes")
+	} else {
+		// Linux/macOS: 使用用户数据目录
+		// 优先使用 XDG_DATA_HOME 环境变量
+		xdgDataHome := os.Getenv("XDG_DATA_HOME")
+		if xdgDataHome != "" {
+			dataDir = filepath.Join(xdgDataHome, "markdown-gen-go", "notes")
+		} else {
+			// 默认使用 ~/.local/share
+			homeDir, err := os.UserHomeDir()
+			if err != nil {
+				homeDir = "."
+			}
+			dataDir = filepath.Join(homeDir, ".local", "share", "markdown-gen-go", "notes")
+		}
 	}
-
-	// 获取安装目录
-	installDir := filepath.Dir(execPath)
-
-	// 在安装目录下创建 notes 文件夹
-	dataDir := filepath.Join(installDir, "notes")
 
 	// 确保目录存在
 	if err := os.MkdirAll(dataDir, 0755); err != nil {

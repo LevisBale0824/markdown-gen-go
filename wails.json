@@ -1,0 +1,13 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "markdown-gen-go",
+  "outputfilename": "markdown-gen-go",
+  "frontend:install": "npm install",
+  "frontend:build": "npm run build",
+  "frontend:dev:watcher": "npm run dev",
+  "frontend:dev:serverUrl": "auto",
+  "author": {
+    "name": "baidu_20988743",
+    "email": "baidu_20988743@noreply.gitcode.com"
+  }
+}

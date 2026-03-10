@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html class="light" lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>Markdown Studio Pro</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+    <!-- 使用国内 CDN -->
+    <script src="https://unpkg.com/marked@11.1.1/marked.min.js"></script>
+    <script src="https://unpkg.com/highlight.js@11.9.0/lib/highlight.min.js"></script>
+    <link id="highlightjs-theme" rel="stylesheet" href="https://unpkg.com/highlight.js@11.9.0/styles/github-dark.min.css" disabled>
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#2563eb",
+                        "accent": "#2563eb",
+                        "background-light": "#ffffff",
+                        "background-dark": "#f8f9fa",
+                        "border-light": "#e5e7eb",
+                        "border-dark": "#e5e7eb",
+                    },
+                    fontFamily: {
+                        "display": ["-apple-system", "BlinkMacSystemFont", "Segoe UI", "Inter", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.5rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 overflow-hidden font-display transition-colors">
+    <div class="flex h-screen w-full flex-col">
+        <!-- Top Navigation -->
+        <header class="flex items-center justify-between border-b border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2 h-12 shrink-0 transition-colors">
+            <div class="flex items-center gap-6">
+                <nav class="flex items-center gap-4">
+                    <button id="btn-file" onclick="app.createNewFile()" class="text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-primary transition-colors">File</button>
+                    <button id="btn-settings" onclick="app.openSettings()" class="text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-primary transition-colors">Settings</button>
+                </nav>
+            </div>
+            <div class="flex items-center gap-3">
+                <div class="h-8 w-8 rounded-full bg-primary/10 dark:bg-primary/20 flex items-center justify-center text-primary font-bold text-xs border border-primary/20 dark:border-primary/30">
+                    AI
+                </div>
+            </div>
+        </header>
+
+        <div class="flex flex-1 overflow-hidden">
+            <!-- Left Sidebar: Explorer -->
+            <aside id="left-sidebar" class="w-64 border-r border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 flex flex-col shrink-0 min-w-[150px] max-w-[500px] transition-colors">
+                <div class="flex items-center justify-between px-4 h-12 border-b border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 shrink-0 transition-colors">
+                    <span id="explorer-title" class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Explorer</span>
+                    <div class="flex items-center gap-1">
+                        <button id="btn-open-folder" onclick="app.openFolder()" class="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-600 dark:text-slate-300" title="打开文件夹">
+                            <span class="material-symbols-outlined text-sm">folder_open</span>
+                        </button>
+                        <button id="btn-new-file" onclick="fileExplorer.createNewFile()" class="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-600 dark:text-slate-300" title="新建文件">
+                            <span class="material-symbols-outlined text-sm">note_add</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="flex-1 overflow-y-auto py-2">
+                    <div id="file-tree" class="space-y-1 px-2">
+                        <!-- File tree will be rendered here -->
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Left Resizer -->
+            <div id="left-resizer" class="w-1 bg-gray-200 dark:bg-slate-700 hover:bg-primary cursor-col-resize shrink-0 transition-colors"></div>
+
+            <!-- Center Area: Editor -->
+            <main class="flex-1 flex flex-col bg-white dark:bg-slate-900 relative transition-colors">
+                <!-- Editor Toolbar -->
+                <div class="flex items-center justify-between px-4 h-12 border-b border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 transition-colors">
+                    <div class="flex items-center gap-1">
+                        <button data-id="btn-bold" onclick="editor.insertFormat('bold')" class="p-1.5 hover:bg-gray-200 dark:hover:bg-slate-700 rounded text-slate-600 dark:text-slate-300 transition-colors" title="Bold (Ctrl+B)">
+                            <span class="material-symbols-outlined text-xl">format_bold</span>
+                        </button>
+                        <button data-id="btn-italic" onclick="editor.insertFormat('italic')" class="p-1.5 hover:bg-gray-200 dark:hover:bg-slate-700 rounded text-slate-600 dark:text-slate-300 transition-colors" title="Italic (Ctrl+I)">
+                            <span class="material-symbols-outlined text-xl">format_italic</span>
+                        </button>
+                        <div class="w-px h-4 bg-gray-300 dark:bg-slate-600 mx-1"></div>
+                        <button data-id="btn-ul" onclick="editor.insertFormat('ul')" class="p-1.5 hover:bg-gray-200 dark:hover:bg-slate-700 rounded text-slate-600 dark:text-slate-300 transition-colors" title="Bullet List">
+                            <span class="material-symbols-outlined text-xl">format_list_bulleted</span>
+                        </button>
+                        <button data-id="btn-ol" onclick="editor.insertFormat('ol')" class="p-1.5 hover:bg-gray-200 dark:hover:bg-slate-700 rounded text-slate-600 dark:text-slate-300 transition-colors" title="Numbered List">
+                            <span class="material-symbols-outlined text-xl">format_list_numbered</span>
+                        </button>
+                        <div class="w-px h-4 bg-gray-300 dark:bg-slate-600 mx-1"></div>
+                        <button data-id="btn-link" onclick="editor.insertFormat('link')" class="p-1.5 hover:bg-gray-200 dark:hover:bg-slate-700 rounded text-slate-600 dark:text-slate-300 transition-colors" title="Link">
+                            <span class="material-symbols-outlined text-xl">link</span>
+                        </button>
+                        <button data-id="btn-image" onclick="editor.insertFormat('image')" class="p-1.5 hover:bg-gray-200 dark:hover:bg-slate-700 rounded text-slate-600 dark:text-slate-300 transition-colors" title="Image">
+                            <span class="material-symbols-outlined text-xl">image</span>
+                        </button>
+                        <button data-id="btn-code" onclick="editor.insertFormat('code')" class="p-1.5 hover:bg-gray-200 dark:hover:bg-slate-700 rounded text-slate-600 dark:text-slate-300 transition-colors" title="Code Block">
+                            <span class="material-symbols-outlined text-xl">code</span>
+                        </button>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <!-- 视图模式切换 -->
+                        <div class="flex items-center bg-gray-100 dark:bg-slate-700 rounded-lg p-0.5">
+                            <button id="btn-mode-edit" onclick="editor.setViewMode('edit')" class="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-all text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200" title="编辑模式">
+                                <span class="material-symbols-outlined text-sm">edit</span>
+                            </button>
+                            <button id="btn-mode-split" onclick="editor.setViewMode('split')" class="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-all bg-white dark:bg-slate-600 shadow text-slate-700 dark:text-slate-200" title="编辑+预览">
+                                <span class="material-symbols-outlined text-sm">view_column</span>
+                            </button>
+                            <button id="btn-mode-preview" onclick="editor.setViewMode('preview')" class="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-all text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200" title="预览模式">
+                                <span class="material-symbols-outlined text-sm">visibility</span>
+                            </button>
+                        </div>
+                        <button id="btn-save" onclick="editor.saveFile()" class="flex items-center gap-2 px-3 py-1 bg-accent/90 backdrop-blur-md text-white border border-white/10 rounded-lg text-xs font-semibold opacity-50 cursor-not-allowed" disabled>
+                            <span class="material-symbols-outlined text-sm">save</span>
+                            <span id="save-text">保存</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Editor Surface -->
+                <div class="flex-1 overflow-hidden flex">
+                    <!-- Editor Area -->
+                    <div id="editor-container" class="flex-1 p-6 editor-container border-r border-gray-200 dark:border-slate-700 transition-colors">
+                        <textarea id="markdown-editor" class="w-full h-full bg-transparent border-none resize-none focus:outline-none font-mono text-sm leading-relaxed overflow-y-auto" placeholder="在此处开始编写你的 Markdown..."></textarea>
+                    </div>
+
+                    <!-- Preview Area -->
+                    <div id="preview-container" class="flex-1 overflow-y-auto p-6 transition-colors">
+                        <div id="markdown-preview" class="prose prose-slate dark:prose-invert max-w-none"></div>
+                    </div>
+                </div>
+
+                <!-- Status Bar -->
+                <div class="h-6 bg-gray-100 dark:bg-slate-800 border-t border-gray-200 dark:border-slate-700 flex items-center justify-between px-4 text-[10px] text-gray-500 dark:text-slate-400 uppercase tracking-widest font-bold transition-colors">
+                    <div class="flex items-center gap-4">
+                        <span id="save-status" class="flex items-center gap-1">
+                            <span class="material-symbols-outlined text-xs">done_all</span>
+                            所有更改已保存
+                        </span>
+                        <span>UTF-8</span>
+                        <span id="current-file">未命名.md</span>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <span id="word-count">字数: 0</span>
+                        <span id="char-count">字符: 0</span>
+                        <span id="ai-status" class="text-primary flex items-center gap-1">
+                            <span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+                            AI 就绪
+                        </span>
+                    </div>
+                </div>
+            </main>
+
+            <!-- Right Resizer -->
+            <div id="right-resizer" class="w-1 bg-gray-200 dark:bg-slate-700 hover:bg-primary cursor-col-resize shrink-0 transition-colors"></div>
+
+            <!-- Right Sidebar: AI Assistant -->
+            <aside id="right-sidebar" class="w-72 border-l border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 flex flex-col shrink-0 min-w-[200px] max-w-[600px] transition-colors">
+                <div class="flex items-center gap-2 px-4 h-12 border-b border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 shrink-0 transition-colors">
+                    <span class="material-symbols-outlined text-primary">auto_awesome</span>
+                    <h3 id="ai-assistant-title" class="text-sm font-bold text-slate-900 dark:text-slate-100">AI Assistant</h3>
+                </div>
+
+                <div class="flex-1 overflow-y-auto p-4 space-y-4">
+                    <!-- AI Quick Actions -->
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="ai.quickAction('polish')" class="flex items-center gap-3 p-2 bg-white/70 dark:bg-slate-700/70 backdrop-blur-md border border-slate-200 dark:border-slate-600 rounded-lg hover:border-accent hover:bg-white dark:hover:bg-slate-600 transition-all">
+                            <span class="material-symbols-outlined text-slate-500 dark:text-slate-400 text-lg">auto_fix_high</span>
+                            <span id="ai-polish" class="text-xs font-medium text-slate-700 dark:text-slate-300">Polish</span>
+                        </button>
+                        <button onclick="ai.quickAction('expand')" class="flex items-center gap-3 p-2 bg-white/70 dark:bg-slate-700/70 backdrop-blur-md border border-slate-200 dark:border-slate-600 rounded-lg hover:border-accent hover:bg-white dark:hover:bg-slate-600 transition-all">
+                            <span class="material-symbols-outlined text-slate-500 dark:text-slate-400 text-lg">add_circle</span>
+                            <span id="ai-expand" class="text-xs font-medium text-slate-700 dark:text-slate-300">Expand</span>
+                        </button>
+                        <button onclick="ai.quickAction('summarize')" class="flex items-center gap-3 p-2 bg-white/70 dark:bg-slate-700/70 backdrop-blur-md border border-slate-200 dark:border-slate-600 rounded-lg hover:border-accent hover:bg-white dark:hover:bg-slate-600 transition-all">
+                            <span class="material-symbols-outlined text-slate-500 dark:text-slate-400 text-lg">summarize</span>
+                            <span id="ai-summarize" class="text-xs font-medium text-slate-700 dark:text-slate-300">Summarize</span>
+                        </button>
+                        <button onclick="ai.quickAction('tone')" class="flex items-center gap-3 p-2 bg-white/70 dark:bg-slate-700/70 backdrop-blur-md border border-slate-200 dark:border-slate-600 rounded-lg hover:border-accent hover:bg-white dark:hover:bg-slate-600 transition-all">
+                            <span class="material-symbols-outlined text-slate-500 dark:text-slate-400 text-lg">psychology</span>
+                            <span id="ai-tone" class="text-xs font-medium text-slate-700 dark:text-slate-300">Tone</span>
+                        </button>
+                    </div>
+
+                    <!-- Selected Text Preview Card -->
+                    <div id="selection-preview" class="bg-white dark:bg-slate-700 p-4 border border-gray-200 dark:border-slate-600 shadow-sm space-y-3 hidden transition-colors">
+                        <div class="flex items-center justify-between">
+                            <span class="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Selected Text</span>
+                        </div>
+                        <p id="selected-text-content" class="text-xs text-slate-600 dark:text-slate-400 italic bg-gray-50 dark:bg-slate-800 p-2 rounded border-l-2 border-gray-200 dark:border-slate-500 break-words"></p>
+                    </div>
+
+                    <!-- AI Chat Messages -->
+                    <div id="chat-messages" class="space-y-3">
+                        <div id="chat-welcome-message" class="text-center text-xs text-slate-400 dark:text-slate-500 py-4">
+                            向 AI 询问有关文档的任何问题
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chat Style Input -->
+                <div class="p-4 border-t border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 transition-colors">
+                    <div class="relative">
+                        <textarea id="ai-input" class="w-full bg-gray-100 dark:bg-slate-800 border-none rounded-xl p-3 text-sm text-gray-700 dark:text-slate-200 focus:ring-2 focus:ring-primary/50 resize-none" placeholder="Ask AI anything..." rows="2"></textarea>
+                        <button onclick="ai.sendMessage()" class="absolute bottom-3 right-3 p-1.5 bg-primary text-white rounded-lg shadow-md hover:bg-primary/90 transition-all">
+                            <span class="material-symbols-outlined text-sm">send</span>
+                        </button>
+                    </div>
+                    <p id="ai-footer-text" class="text-[9px] text-center text-slate-400 dark:text-slate-500 mt-2">
+                        由 GLM-4.7 提供支持。在设置中配置 API。
+                    </p>
+                </div>
+            </aside>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="fixed inset-0 bg-black/50 flex items-center justify-center hidden z-50">
+        <div class="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-md p-6 transition-colors">
+            <div class="flex items-center justify-between mb-6">
+                <h2 id="settings-title" class="text-xl font-bold text-slate-900 dark:text-slate-100">Settings</h2>
+                <button onclick="app.closeSettings()" class="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded text-slate-600 dark:text-slate-300">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+
+            <div class="space-y-4">
+                <div>
+                    <label id="label-ai-provider" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">AI Provider</label>
+                    <select id="ai-provider" class="w-full bg-gray-100 dark:bg-slate-700 border-none rounded-lg p-2 text-sm text-gray-700 dark:text-slate-200">
+                        <option value="glm">GLM (Zhipu AI)</option>
+                        <option value="openai">OpenAI Compatible</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label id="label-api-key" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">API Key</label>
+                    <input id="ai-api-key" type="password" class="w-full bg-gray-100 dark:bg-slate-700 border-none rounded-lg p-2 text-sm text-gray-700 dark:text-slate-200" placeholder="Enter your API key">
+                </div>
+
+                <div>
+                    <label id="label-api-endpoint" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">API Endpoint</label>
+                    <input id="ai-endpoint" type="text" class="w-full bg-gray-100 dark:bg-slate-700 border-none rounded-lg p-2 text-sm text-gray-700 dark:text-slate-200" placeholder="https://api.example.com/v1/chat/completions">
+                </div>
+
+                <div>
+                    <label id="label-model" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Model</label>
+                    <input id="ai-model" type="text" class="w-full bg-gray-100 dark:bg-slate-700 border-none rounded-lg p-2 text-sm text-gray-700 dark:text-slate-200" placeholder="glm-4-flash">
+                </div>
+
+                <div>
+                    <label id="label-theme" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Theme</label>
+                    <select id="app-theme" class="w-full bg-gray-100 dark:bg-slate-700 border-none rounded-lg p-2 text-sm text-gray-700 dark:text-slate-200" onchange="app.toggleCustomTheme(this.value)">
+                        <option value="light">Light</option>
+                        <option value="dark">Dark</option>
+                        <option value="custom">Custom</option>
+                    </select>
+                </div>
+
+                <!-- 自定义主题配置 -->
+                <div id="custom-theme-config" class="hidden space-y-3 p-4 bg-gray-50 dark:bg-slate-700 rounded-lg border border-gray-200 dark:border-slate-600 transition-colors">
+                    <h4 id="custom-theme-title" class="text-sm font-semibold text-slate-700 dark:text-slate-300">Custom Theme Colors</h4>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label id="label-bg-color" class="block text-xs text-slate-600 dark:text-slate-400 mb-1">Background</label>
+                            <input type="color" id="theme-bg-color" value="#ffffff" class="w-full h-10 rounded cursor-pointer">
+                        </div>
+                        <div>
+                            <label id="label-text-color" class="block text-xs text-slate-600 dark:text-slate-400 mb-1">Text</label>
+                            <input type="color" id="theme-text-color" value="#1f2937" class="w-full h-10 rounded cursor-pointer">
+                        </div>
+                        <div>
+                            <label id="label-accent-color" class="block text-xs text-slate-600 dark:text-slate-400 mb-1">Accent</label>
+                            <input type="color" id="theme-accent-color" value="#2563eb" class="w-full h-10 rounded cursor-pointer">
+                        </div>
+                        <div>
+                            <label id="label-border-color" class="block text-xs text-slate-600 dark:text-slate-400 mb-1">Border</label>
+                            <input type="color" id="theme-border-color" value="#e5e7eb" class="w-full h-10 rounded cursor-pointer">
+                        </div>
+                        <div>
+                            <label id="label-code-bg-color" class="block text-xs text-slate-600 dark:text-slate-400 mb-1">Code BG</label>
+                            <input type="color" id="theme-code-bg-color" value="#f3f4f6" class="w-full h-10 rounded cursor-pointer">
+                        </div>
+                        <div>
+                            <label id="label-secondary-bg-color" class="block text-xs text-slate-600 dark:text-slate-400 mb-1">Secondary BG</label>
+                            <input type="color" id="theme-secondary-bg-color" value="#f9fafb" class="w-full h-10 rounded cursor-pointer">
+                        </div>
+                        <div>
+                            <label id="label-muted-text-color" class="block text-xs text-slate-600 dark:text-slate-400 mb-1">Muted Text</label>
+                            <input type="color" id="theme-muted-text-color" value="#6b7280" class="w-full h-10 rounded cursor-pointer">
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <label id="label-language" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Language</label>
+                    <select id="app-language" class="w-full bg-gray-100 dark:bg-slate-700 border-none rounded-lg p-2 text-sm text-gray-700 dark:text-slate-200" onchange="setLanguage(this.value)">
+                        <option value="zh">中文</option>
+                        <option value="en">English</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-3 mt-6">
+                <button id="btn-cancel" onclick="app.closeSettings()" class="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg">Cancel</button>
+                <button id="btn-save-settings" onclick="app.saveSettings()" class="px-4 py-2 text-sm font-medium bg-primary text-white rounded-lg hover:bg-primary/90">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TypeScript Entry Point (Vite) -->
+    <script type="module" src="./src/ts/main.ts"></script>
+</body>
+</html>

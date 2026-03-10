@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	runtimelib "runtime"
 )
 
 // AIConfig AI 配置
@@ -50,14 +51,42 @@ func NewService() *Service {
 }
 
 // GetConfigPath 获取配置文件路径
+// Windows: 安装目录下的 config 文件夹
+// Linux/macOS: ~/.config/markdown-gen-go/ 或 XDG_CONFIG_HOME
 func GetConfigPath() string {
-	configDir, err := os.UserConfigDir()
-	if err != nil {
-		configDir = "."
+	var configDir string
+
+	if runtimelib.GOOS == "windows" {
+		// Windows: 使用安装目录下的 config 文件夹
+		execPath, err := os.Executable()
+		if err != nil {
+			execPath = "."
+		}
+		installDir := filepath.Dir(execPath)
+		configDir = filepath.Join(installDir, "config")
+	} else {
+		// Linux/macOS: 使用用户配置目录
+		// 优先使用 XDG_CONFIG_HOME 环境变量
+		xdgConfigHome := os.Getenv("XDG_CONFIG_HOME")
+		if xdgConfigHome != "" {
+			configDir = filepath.Join(xdgConfigHome, "markdown-gen-go")
+		} else {
+			// 默认使用 ~/.config
+			homeDir, err := os.UserHomeDir()
+			if err != nil {
+				homeDir = "."
+			}
+			configDir = filepath.Join(homeDir, ".config", "markdown-gen-go")
+		}
 	}
-	appDir := filepath.Join(configDir, "markdown-gen-go")
-	os.MkdirAll(appDir, 0755)
-	return filepath.Join(appDir, "config.json")
+
+	// 确保目录存在
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		// 如果创建失败，使用当前目录下的 config
+		configDir = filepath.Join(".", "config")
+	}
+
+	return filepath.Join(configDir, "config.json")
 }
 
 // Get 获取配置

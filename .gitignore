@@ -23,3 +23,6 @@ Thumbs.db
 # Dev files
 *.exe~
 notes/
+
+# Build artifacts
+*.exe

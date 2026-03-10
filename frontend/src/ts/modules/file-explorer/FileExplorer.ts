@@ -58,16 +58,19 @@ export class FileExplorer {
   }
 
   /**
-   * 获取默认路径（用户主目录）
+   * 规范化路径（统一使用反斜杠）
    */
-  private async getDefaultPath(): Promise<string> {
-    try {
-      const appDir = await tauriBridge.getAppDir();
-      // 返回用户主目录
-      return appDir;
-    } catch {
-      return '.';
-    }
+  private normalizePath(path: string): string {
+    return path.replace(/\//g, '\\');
+  }
+
+  /**
+   * 获取父目录
+   */
+  private getParentDir(path: string): string {
+    const normalized = this.normalizePath(path);
+    const idx = Math.max(normalized.lastIndexOf('\\'), normalized.lastIndexOf('/'));
+    return idx > 0 ? normalized.substring(0, idx) : '';
   }
 
   /**
@@ -87,11 +90,45 @@ export class FileExplorer {
       // 监听文件变更事件
       this.unsubscribe = tauriBridge.onFileChange((event) => {
         console.log('File change detected:', event);
-        // 只刷新受影响的文件夹，而不是整个目录树
-        this.refreshAffectedFolders(event.paths);
+        this.handleFileChange(event.paths, event.kind);
       });
     } catch (error) {
       console.error('Failed to start file watcher:', error);
+    }
+  }
+
+  /**
+   * 处理文件变更
+   */
+  private async handleFileChange(changedPaths: string[], kind: string): Promise<void> {
+    if (!this.currentPath) return;
+
+    const normalizedCurrentPath = this.normalizePath(this.currentPath);
+
+    for (const changedPath of changedPaths) {
+      const normalizedChangedPath = this.normalizePath(changedPath);
+
+      console.log('Checking path:', normalizedChangedPath, 'against current:', normalizedCurrentPath);
+
+      // 检查是否是当前目录或子目录下的变更
+      if (!normalizedChangedPath.startsWith(normalizedCurrentPath)) continue;
+
+      // 获取父目录
+      const parentDir = this.getParentDir(normalizedChangedPath);
+      console.log('Parent dir:', parentDir, 'kind:', kind);
+
+      // 如果变更在根目录下，刷新整个文件树
+      if (parentDir === normalizedCurrentPath || parentDir === '') {
+        console.log('Refreshing root directory due to change:', normalizedChangedPath);
+        await this.loadDirectory(this.currentPath!);
+        return;
+      }
+
+      // 如果父目录已展开，刷新该文件夹
+      if (this.expandedFolders.has(parentDir)) {
+        console.log('Refreshing expanded folder:', parentDir);
+        await this.refreshFolder(parentDir);
+      }
     }
   }
 
@@ -147,10 +184,12 @@ export class FileExplorer {
     row.className = 'file-item flex items-center gap-1 px-2 py-1.5 text-sm rounded-lg cursor-pointer';
     row.style.paddingLeft = `${level * 16 + 8}px`;
 
+    const normalizedPath = this.normalizePath(file.path);
+
     if (file.isDir) {
-      const isExpanded = this.expandedFolders.has(file.path);
+      const isExpanded = this.expandedFolders.has(normalizedPath);
       row.classList.add('font-medium', 'text-slate-700', 'dark:text-slate-300', 'hover:bg-slate-100', 'dark:hover:bg-slate-800');
-      row.setAttribute('data-path', file.path);
+      row.setAttribute('data-path', normalizedPath);
       row.innerHTML = `
         <span class="material-symbols-outlined text-sm text-slate-400 dark:text-slate-500 transition-transform ${isExpanded ? 'rotate-90' : ''}" data-chevron>${isExpanded ? 'chevron_right' : 'chevron_right'}</span>
         <span class="material-symbols-outlined text-slate-400 dark:text-slate-500" data-folder-icon>${isExpanded ? 'folder_open' : 'folder'}</span>
@@ -160,18 +199,18 @@ export class FileExplorer {
       // 子文件夹容器
       const childrenContainer = document.createElement('div');
       childrenContainer.className = 'folder-children';
-      childrenContainer.setAttribute('data-folder-path', file.path);
+      childrenContainer.setAttribute('data-folder-path', normalizedPath);
       childrenContainer.setAttribute('data-level', String(level + 1));
       childrenContainer.style.display = isExpanded ? 'block' : 'none';
 
       // 点击展开/折叠并选中文件夹
       row.addEventListener('click', async () => {
         // 选中当前文件夹
-        this.selectFolder(file.path, row);
+        this.selectFolder(normalizedPath, row);
 
-        if (this.expandedFolders.has(file.path)) {
+        if (this.expandedFolders.has(normalizedPath)) {
           // 折叠
-          this.expandedFolders.delete(file.path);
+          this.expandedFolders.delete(normalizedPath);
           childrenContainer.style.display = 'none';
           const chevron = row.querySelector('[data-chevron]') as HTMLElement;
           const folderIcon = row.querySelector('[data-folder-icon') as HTMLElement;
@@ -179,7 +218,7 @@ export class FileExplorer {
           if (folderIcon) folderIcon.textContent = 'folder';
         } else {
           // 展开
-          this.expandedFolders.add(file.path);
+          this.expandedFolders.add(normalizedPath);
           childrenContainer.style.display = 'block';
           const chevron = row.querySelector('[data-chevron]') as HTMLElement;
           const folderIcon = row.querySelector('[data-folder-icon]') as HTMLElement;
@@ -209,7 +248,7 @@ export class FileExplorer {
       item.appendChild(childrenContainer);
     } else {
       row.classList.add('text-slate-600', 'dark:text-slate-400', 'hover:bg-slate-100', 'dark:hover:bg-slate-800');
-      row.setAttribute('data-path', file.path);
+      row.setAttribute('data-path', normalizedPath);
       row.innerHTML = `
         <span class="w-4"></span>
         <span class="material-symbols-outlined text-sm text-slate-400 dark:text-slate-500">description</span>
@@ -217,7 +256,7 @@ export class FileExplorer {
       `;
 
       // 高亮当前打开的文件
-      if (this.currentFilePath === file.path) {
+      if (this.currentFilePath === normalizedPath) {
         row.classList.add('active');
       }
 
@@ -241,7 +280,7 @@ export class FileExplorer {
       this.app.updateFileName(path);
 
       // 记录当前打开的文件
-      this.currentFilePath = path;
+      this.currentFilePath = this.normalizePath(path);
 
       // 高亮当前文件
       this.highlightCurrentFile(row);
@@ -431,74 +470,20 @@ export class FileExplorer {
   }
 
   /**
-   * 刷新受影响的文件夹
-   */
-  private async refreshAffectedFolders(changedPaths: string[]): Promise<void> {
-    if (!this.currentPath) return;
-
-    // 找出需要刷新的文件夹路径
-    const foldersToRefresh = new Set<string>();
-
-    for (const changedPath of changedPaths) {
-      // 检查是否是当前目录或子目录下的文件
-      if (changedPath.startsWith(this.currentPath)) {
-        // 获取文件所在目录
-        const parentDir = changedPath.substring(0, changedPath.lastIndexOf('\\'));
-        if (parentDir && this.expandedFolders.has(parentDir)) {
-          foldersToRefresh.add(parentDir);
-        }
-      }
-    }
-
-    // 刷新各个受影响的文件夹
-    for (const folderPath of foldersToRefresh) {
-      await this.refreshFolder(folderPath);
-    }
-  }
-
-  /**
    * 刷新指定文件夹（保持展开状态）
    */
   private async refreshFolder(folderPath: string): Promise<void> {
     try {
+      const normalizedFolderPath = this.normalizePath(folderPath);
+
+      // 如果是根目录，刷新整个文件树
+      if (normalizedFolderPath === this.normalizePath(this.currentPath || '')) {
+        await this.loadDirectory(this.currentPath!);
+        return;
+      }
+
       // 查找对应的文件夹容器
-      const folderItems = this.fileTree.querySelectorAll('.file-item-wrapper');
-      let childrenContainer: HTMLElement | null = null;
-
-      for (const item of folderItems) {
-        const row = item.querySelector('.file-item');
-        if (row && row.textContent?.trim()) {
-          // 找到匹配的文件夹
-          const pathAttr = row.getAttribute('data-path');
-          if (pathAttr === folderPath) {
-            childrenContainer = item.querySelector('.folder-children') as HTMLElement;
-            break;
-          }
-        }
-      }
-
-      // 如果找不到，尝试通过路径匹配
-      if (!childrenContainer) {
-        // 遍历查找包含该路径的文件夹
-        const allRows = this.fileTree.querySelectorAll('.file-item');
-        for (const row of allRows) {
-          const folderIcon = row.querySelector('[data-folder-icon]');
-          if (folderIcon) {
-            // 这是文件夹，检查其子容器
-            const parent = row.parentElement;
-            if (parent) {
-              const children = parent.querySelector('.folder-children') as HTMLElement;
-              if (children && children.hasAttribute('data-folder-path')) {
-                const childPath = children.getAttribute('data-folder-path');
-                if (childPath === folderPath) {
-                  childrenContainer = children;
-                  break;
-                }
-              }
-            }
-          }
-        }
-      }
+      const childrenContainer = this.fileTree.querySelector(`[data-folder-path="${normalizedFolderPath}"]`) as HTMLElement;
 
       if (childrenContainer) {
         // 加载新的子项

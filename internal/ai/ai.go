@@ -1,4 +1,4 @@
-package main
+package ai
 
 import (
 	"bytes"
@@ -39,11 +39,27 @@ type GLMResponse struct {
 	} `json:"choices"`
 }
 
-// AIChat AI 聊天
-func (a *App) AIChat(message, context string) (string, error) {
-	config := a.GetConfig()
+// Config AI 配置
+type Config struct {
+	APIKey      string
+	APIEndpoint string
+	Model       string
+	MaxTokens   int
+}
 
-	if config.AI.APIKey == "" {
+// Service AI 服务
+type Service struct {
+	config Config
+}
+
+// NewService 创建 AI 服务
+func NewService(config Config) *Service {
+	return &Service{config: config}
+}
+
+// Chat AI 聊天
+func (s *Service) Chat(message, context string) (string, error) {
+	if s.config.APIKey == "" {
 		return "", fmt.Errorf("API key not configured")
 	}
 
@@ -66,14 +82,12 @@ func (a *App) AIChat(message, context string) (string, error) {
 		Content: message,
 	})
 
-	return a.callAIAPI(messages, config.AI)
+	return s.callAPI(messages)
 }
 
-// AISuggest AI 建议
-func (a *App) AISuggest(text, action string) (string, error) {
-	config := a.GetConfig()
-
-	if config.AI.APIKey == "" {
+// Suggest AI 建议
+func (s *Service) Suggest(text, action string) (string, error) {
+	if s.config.APIKey == "" {
 		return "", fmt.Errorf("API key not configured")
 	}
 
@@ -96,15 +110,15 @@ func (a *App) AISuggest(text, action string) (string, error) {
 		{Role: "user", Content: text},
 	}
 
-	return a.callAIAPI(messages, config.AI)
+	return s.callAPI(messages)
 }
 
-// callAIAPI 调用 AI API
-func (a *App) callAIAPI(messages []ChatMessage, config AIConfig) (string, error) {
+// callAPI 调用 AI API
+func (s *Service) callAPI(messages []ChatMessage) (string, error) {
 	request := AIRequest{
 		Messages:  messages,
-		Model:     config.Model,
-		MaxTokens: config.MaxTokens,
+		Model:     s.config.Model,
+		MaxTokens: s.config.MaxTokens,
 		Stream:    false,
 	}
 
@@ -115,12 +129,12 @@ func (a *App) callAIAPI(messages []ChatMessage, config AIConfig) (string, error)
 
 	client := &http.Client{Timeout: 60 * time.Second}
 
-	req, err := http.NewRequest("POST", config.APIEndpoint, bytes.NewReader(body))
+	req, err := http.NewRequest("POST", s.config.APIEndpoint, bytes.NewReader(body))
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}
 
-	req.Header.Set("Authorization", "Bearer "+config.APIKey)
+	req.Header.Set("Authorization", "Bearer "+s.config.APIKey)
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := client.Do(req)

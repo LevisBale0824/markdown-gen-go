@@ -8,17 +8,29 @@ import (
 	"strings"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
+
+	"markdown-gen-go/internal/ai"
+	"markdown-gen-go/internal/config"
+	"markdown-gen-go/internal/file"
+	"markdown-gen-go/internal/watcher"
 )
 
 // App struct
 type App struct {
-	ctx         context.Context
-	fileWatcher *FileWatcher
+	ctx          context.Context
+	configSvc    *config.Service
+	fileSvc      *file.Service
+	aiSvc        *ai.Service
+	watcherSvc   *watcher.Service
 }
 
 // NewApp creates a new App application struct
 func NewApp() *App {
-	return &App{}
+	return &App{
+		configSvc:  config.NewService(),
+		fileSvc:    file.NewService(),
+		watcherSvc: watcher.NewService(),
+	}
 }
 
 // startup is called when the app starts. The context is saved
@@ -104,7 +116,6 @@ func (a *App) OpenFileDialog() (string, error) {
 
 // CountWords 统计字数
 func (a *App) CountWords(content string) int {
-	// 简单的字数统计（支持中英文）
 	content = strings.TrimSpace(content)
 	if content == "" {
 		return 0
@@ -132,4 +143,130 @@ func (a *App) CountWords(content string) int {
 // CountChars 统计字符数
 func (a *App) CountChars(content string) int {
 	return len([]rune(content))
+}
+
+// ========== 文件操作（代理到 file.Service） ==========
+
+// FileInfo 文件信息（导出给前端）
+type FileInfo = file.FileInfo
+
+// ReadDirectory 读取目录内容
+func (a *App) ReadDirectory(path string) ([]FileInfo, error) {
+	return a.fileSvc.ReadDirectory(path)
+}
+
+// OpenFile 打开并读取文件内容
+func (a *App) OpenFile(path string) (string, error) {
+	return a.fileSvc.OpenFile(path)
+}
+
+// SaveFile 保存文件内容
+func (a *App) SaveFile(path, content string) error {
+	return a.fileSvc.SaveFile(path, content)
+}
+
+// CreateFile 创建新文件
+func (a *App) CreateFile(path string) error {
+	return a.fileSvc.CreateFile(path)
+}
+
+// DeleteFile 删除文件
+func (a *App) DeleteFile(path string) error {
+	return a.fileSvc.DeleteFile(path)
+}
+
+// CreateDirectory 创建目录
+func (a *App) CreateDirectory(path string) error {
+	return a.fileSvc.CreateDirectory(path)
+}
+
+// FileExists 检查文件是否存在
+func (a *App) FileExists(path string) bool {
+	return a.fileSvc.FileExists(path)
+}
+
+// GetFileExtension 获取文件扩展名
+func (a *App) GetFileExtension(path string) string {
+	return a.fileSvc.GetFileExtension(path)
+}
+
+// IsMarkdownFile 检查是否为 Markdown 文件
+func (a *App) IsMarkdownFile(path string) bool {
+	return a.fileSvc.IsMarkdownFile(path)
+}
+
+// ========== 配置操作（代理到 config.Service） ==========
+
+// AIConfig AI 配置（导出给前端）
+type AIConfig = config.AIConfig
+
+// AppConfig 应用配置（导出给前端）
+type AppConfig = config.AppConfig
+
+// GetConfigPath 获取配置文件路径
+func (a *App) GetConfigPath() string {
+	return a.configSvc.GetConfigPath()
+}
+
+// GetConfig 获取配置
+func (a *App) GetConfig() AppConfig {
+	return a.configSvc.Get()
+}
+
+// SaveConfig 保存配置
+func (a *App) SaveConfig(config AppConfig) error {
+	return a.configSvc.Save(config)
+}
+
+// UpdateLastDir 更新最后访问的目录
+func (a *App) UpdateLastDir(dir string) error {
+	return a.configSvc.UpdateLastDir(dir)
+}
+
+// UpdateAIConfig 更新 AI 配置
+func (a *App) UpdateAIConfig(aiConfig AIConfig) error {
+	return a.configSvc.UpdateAIConfig(aiConfig)
+}
+
+// ========== AI 操作（代理到 ai.Service） ==========
+
+// AIChat AI 聊天
+func (a *App) AIChat(message, context string) (string, error) {
+	cfg := a.GetConfig()
+	svc := ai.NewService(ai.Config{
+		APIKey:      cfg.AI.APIKey,
+		APIEndpoint: cfg.AI.APIEndpoint,
+		Model:       cfg.AI.Model,
+		MaxTokens:   cfg.AI.MaxTokens,
+	})
+	return svc.Chat(message, context)
+}
+
+// AISuggest AI 建议
+func (a *App) AISuggest(text, action string) (string, error) {
+	cfg := a.GetConfig()
+	svc := ai.NewService(ai.Config{
+		APIKey:      cfg.AI.APIKey,
+		APIEndpoint: cfg.AI.APIEndpoint,
+		Model:       cfg.AI.Model,
+		MaxTokens:   cfg.AI.MaxTokens,
+	})
+	return svc.Suggest(text, action)
+}
+
+// ========== 文件监视（代理到 watcher.Service） ==========
+
+// FileChangeEvent 文件变更事件（导出给前端）
+type FileChangeEvent = watcher.FileChangeEvent
+
+// StartFileWatcher 启动文件监视
+func (a *App) StartFileWatcher(path string) error {
+	return a.watcherSvc.Start(path, func(event FileChangeEvent) {
+		runtime.EventsEmit(a.ctx, "file-change", event)
+	})
+}
+
+// StopFileWatcher 停止文件监视
+func (a *App) StopFileWatcher() {
+	a.watcherSvc.Stop()
 }

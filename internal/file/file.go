@@ -1,4 +1,4 @@
-package main
+package file
 
 import (
 	"os"
@@ -16,8 +16,16 @@ type FileInfo struct {
 	ModTime string `json:"modTime"`
 }
 
+// Service 文件服务
+type Service struct{}
+
+// NewService 创建文件服务
+func NewService() *Service {
+	return &Service{}
+}
+
 // ReadDirectory 读取目录内容
-func (a *App) ReadDirectory(path string) ([]FileInfo, error) {
+func (s *Service) ReadDirectory(path string) ([]FileInfo, error) {
 	entries, err := os.ReadDir(path)
 	if err != nil {
 		return nil, err
@@ -53,7 +61,7 @@ func (a *App) ReadDirectory(path string) ([]FileInfo, error) {
 }
 
 // OpenFile 打开并读取文件内容
-func (a *App) OpenFile(path string) (string, error) {
+func (s *Service) OpenFile(path string) (string, error) {
 	content, err := os.ReadFile(path)
 	if err != nil {
 		return "", err
@@ -62,12 +70,12 @@ func (a *App) OpenFile(path string) (string, error) {
 }
 
 // SaveFile 保存文件内容
-func (a *App) SaveFile(path, content string) error {
+func (s *Service) SaveFile(path, content string) error {
 	return os.WriteFile(path, []byte(content), 0644)
 }
 
 // CreateFile 创建新文件
-func (a *App) CreateFile(path string) error {
+func (s *Service) CreateFile(path string) error {
 	file, err := os.Create(path)
 	if err != nil {
 		return err
@@ -76,28 +84,28 @@ func (a *App) CreateFile(path string) error {
 }
 
 // DeleteFile 删除文件
-func (a *App) DeleteFile(path string) error {
+func (s *Service) DeleteFile(path string) error {
 	return os.Remove(path)
 }
 
 // CreateDirectory 创建目录
-func (a *App) CreateDirectory(path string) error {
+func (s *Service) CreateDirectory(path string) error {
 	return os.MkdirAll(path, 0755)
 }
 
 // FileExists 检查文件是否存在
-func (a *App) FileExists(path string) bool {
+func (s *Service) FileExists(path string) bool {
 	_, err := os.Stat(path)
 	return err == nil
 }
 
 // GetFileExtension 获取文件扩展名
-func (a *App) GetFileExtension(path string) string {
+func (s *Service) GetFileExtension(path string) string {
 	return strings.ToLower(filepath.Ext(path))
 }
 
 // IsMarkdownFile 检查是否为 Markdown 文件
-func (a *App) IsMarkdownFile(path string) bool {
-	ext := a.GetFileExtension(path)
+func (s *Service) IsMarkdownFile(path string) bool {
+	ext := s.GetFileExtension(path)
 	return ext == ".md" || ext == ".markdown"
 }

@@ -1,4 +1,4 @@
-package main
+package config
 
 import (
 	"encoding/json"
@@ -37,8 +37,20 @@ func DefaultConfig() AppConfig {
 	}
 }
 
+// Service 配置服务
+type Service struct {
+	configPath string
+}
+
+// NewService 创建配置服务
+func NewService() *Service {
+	return &Service{
+		configPath: GetConfigPath(),
+	}
+}
+
 // GetConfigPath 获取配置文件路径
-func (a *App) GetConfigPath() string {
+func GetConfigPath() string {
 	configDir, err := os.UserConfigDir()
 	if err != nil {
 		configDir = "."
@@ -48,15 +60,13 @@ func (a *App) GetConfigPath() string {
 	return filepath.Join(appDir, "config.json")
 }
 
-// GetConfig 获取配置
-func (a *App) GetConfig() AppConfig {
-	configPath := a.GetConfigPath()
-
-	data, err := os.ReadFile(configPath)
+// Get 获取配置
+func (s *Service) Get() AppConfig {
+	data, err := os.ReadFile(s.configPath)
 	if err != nil {
 		// 配置文件不存在，返回默认配置并保存
 		config := DefaultConfig()
-		a.SaveConfig(config)
+		s.Save(config)
 		return config
 	}
 
@@ -68,28 +78,26 @@ func (a *App) GetConfig() AppConfig {
 	return config
 }
 
-// SaveConfig 保存配置
-func (a *App) SaveConfig(config AppConfig) error {
-	configPath := a.GetConfigPath()
-
+// Save 保存配置
+func (s *Service) Save(config AppConfig) error {
 	data, err := json.MarshalIndent(config, "", "  ")
 	if err != nil {
 		return err
 	}
 
-	return os.WriteFile(configPath, data, 0644)
+	return os.WriteFile(s.configPath, data, 0644)
 }
 
 // UpdateLastDir 更新最后访问的目录
-func (a *App) UpdateLastDir(dir string) error {
-	config := a.GetConfig()
+func (s *Service) UpdateLastDir(dir string) error {
+	config := s.Get()
 	config.LastDir = dir
-	return a.SaveConfig(config)
+	return s.Save(config)
 }
 
 // UpdateAIConfig 更新 AI 配置
-func (a *App) UpdateAIConfig(aiConfig AIConfig) error {
-	config := a.GetConfig()
+func (s *Service) UpdateAIConfig(aiConfig AIConfig) error {
+	config := s.Get()
 	config.AI = aiConfig
-	return a.SaveConfig(config)
+	return s.Save(config)
 }
